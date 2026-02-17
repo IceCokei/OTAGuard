@@ -1,6 +1,6 @@
 # 🛡️ OTA Guard
 
-A dual-layer Android application + LSPosed module that monitors and blocks system OTA updates on OnePlus/ColorOS devices.
+Dual-layer OTA update blocker for rooted OnePlus / ColorOS devices. Combines a root-powered monitoring app with an LSPosed hook module to prevent the system from silently re-enabling OTA services.
 
 ## ❓ Why
 
@@ -8,12 +8,13 @@ ColorOS can silently re-enable OTA services, reset update settings, or push hidd
 
 ## ⚙️ How It Works
 
-### 📱 App Layer
+### App Layer
 - Uses root privileges to check the enabled/disabled state of 5 OTA-related system packages
 - Reads 3 critical `Settings.Global` values that control automatic update behavior
-- Provides a one-tap "Enforce" button to re-freeze everything if tampering is detected
+- Real-time logging dashboard with INFO / WARN / ERROR levels
+- One-tap "Enforce" button to re-freeze everything if tampering is detected
 
-### 🪝 LSPosed Hook Layer
+### LSPosed Hook Layer
 - **Settings Protection** — Hooks `Settings.Global.putString` and `putInt` to block any attempt to change OTA-related settings back to their defaults
 - **Package Protection** — Hooks `PackageManagerService.setApplicationEnabledSetting` to prevent OTA packages from being re-enabled
 - **Process Kill** — Hooks `Application.onCreate` inside OTA packages to immediately terminate them if they somehow launch
@@ -36,7 +37,7 @@ ColorOS can silently re-enable OTA services, reset update settings, or push hidd
 
 - Android 11+ (API 30)
 - Root access (Magisk / KernelSU)
-- LSPosed framework
+- LSPosed framework (optional but recommended for full protection)
 
 ## 🧪 Tested Environment
 
@@ -47,7 +48,7 @@ ColorOS can silently re-enable OTA services, reset update settings, or push hidd
 ## 📥 Install
 
 1. Download the latest release APK from [Releases](https://github.com/IceCokei/OTAGuard/releases)
-2. Install the APK
+2. Install the APK and grant root access
 3. Open LSPosed Manager → Modules → Enable **OTA Guard**
 4. Select scope: `System Framework (android)` + all OTA packages + `OTA Guard` itself
 5. Reboot
@@ -58,6 +59,16 @@ ColorOS can silently re-enable OTA services, reset update settings, or push hidd
 export JAVA_HOME=/path/to/jdk17
 ./gradlew assembleRelease
 ```
+
+## 📊 Star History
+
+<a href="https://www.star-history.com/#IceCokei/OTAGuard&type=date&legend=top-left">
+ <picture>
+   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=IceCokei/OTAGuard&type=date&theme=dark&legend=top-left" />
+   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/svg?repos=IceCokei/OTAGuard&type=date&legend=top-left" />
+   <img alt="Star History Chart" src="https://api.star-history.com/svg?repos=IceCokei/OTAGuard&type=date&legend=top-left" />
+ </picture>
+</a>
 
 ## 📄 License
 
