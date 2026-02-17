@@ -1,0 +1,72 @@
+name: Build & Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Decode keystore
+        run: echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > app/release.jks
+
+      - name: Build release APK
+        env:
+          KEYSTORE_FILE: release.jks
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+        run: chmod +x gradlew && ./gradlew assembleRelease
+
+      - name: Get version
+        id: version
+        run: |
+          VERSION_NAME=$(grep -oP 'versionName\s*=\s*"\K[^"]+' app/build.gradle.kts)
+          VERSION_CODE=$(grep -oP 'versionCode\s*=\s*\K\d+' app/build.gradle.kts)
+          echo "name=$VERSION_NAME" >> $GITHUB_OUTPUT
+          echo "code=$VERSION_CODE" >> $GITHUB_OUTPUT
+          TAG=${GITHUB_REF_NAME:-v$VERSION_NAME}
+          echo "tag=$TAG" >> $GITHUB_OUTPUT
+
+      - name: Rename APK
+        run: mv app/build/outputs/apk/release/app-release.apk app/build/outputs/apk/release/OTAGuard-${{ steps.version.outputs.name }}-release.apk
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.version.outputs.tag }}
+          name: OTA Guard v${{ steps.version.outputs.name }}
+          body: |
+            ## 🛡️ OTA Guard v${{ steps.version.outputs.name }} (build ${{ steps.version.outputs.code }})
+
+            ### ✨ Features
+            - 🚫 Monitor and block OTA system updates on OnePlus/ColorOS
+            - 🪝 LSPosed module: intercept Settings.Global writes & PackageManager calls
+            - 🔍 Root-based real-time package and settings status checking
+            - 🔒 One-tap enforce to re-disable all OTA channels
+
+            ### 📥 Install
+            1. 📲 Install the APK
+            2. 🧩 Enable the module in LSPosed Manager
+            3. ☑️ Select scope: `android` + OTA packages + self
+            4. 🔄 Reboot
+          files: app/build/outputs/apk/release/OTAGuard-${{ steps.version.outputs.name }}-release.apk
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

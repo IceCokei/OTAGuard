@@ -16,9 +16,28 @@ android {
         versionName = "1.0.0"
     }
 
+    signingConfigs {
+        create("release") {
+            val props = rootProject.file("keystore.properties")
+            if (props.exists()) {
+                val ks = java.util.Properties().apply { props.inputStream().use { load(it) } }
+                storeFile = file(ks.getProperty("storeFile"))
+                storePassword = ks.getProperty("storePassword")
+                keyAlias = ks.getProperty("keyAlias")
+                keyPassword = ks.getProperty("keyPassword")
+            } else {
+                storeFile = file(System.getenv("KEYSTORE_FILE") ?: "/dev/null")
+                storePassword = System.getenv("KEYSTORE_PASSWORD") ?: ""
+                keyAlias = System.getenv("KEY_ALIAS") ?: ""
+                keyPassword = System.getenv("KEY_PASSWORD") ?: ""
+            }
+        }
+    }
+
     buildTypes {
         release {
             isMinifyEnabled = true
+            signingConfig = signingConfigs.getByName("release")
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
