@@ -1,5 +1,10 @@
 import java.util.Properties
 
+fun gitHash(): String = try {
+    Runtime.getRuntime().exec(arrayOf("git", "rev-parse", "--short", "HEAD"))
+        .inputStream.bufferedReader().readText().trim()
+} catch (_: Exception) { "unknown" }
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
@@ -16,6 +21,9 @@ android {
         targetSdk = 35
         versionCode = 1
         versionName = "1.0.0"
+
+        buildConfigField("String", "GIT_HASH", "\"${gitHash()}\"")
+        buildConfigField("long", "BUILD_TIME", "${System.currentTimeMillis()}L")
     }
 
     signingConfigs {
@@ -59,6 +67,7 @@ android {
 
     buildFeatures {
         compose = true
+        buildConfig = true
     }
 }
 

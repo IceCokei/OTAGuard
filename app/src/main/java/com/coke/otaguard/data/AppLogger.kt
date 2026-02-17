@@ -10,15 +10,22 @@ data class LogEntry(
     val level: LogLevel = LogLevel.INFO,
     val message: String
 ) {
-    private val sdf = SimpleDateFormat("HH:mm:ss", Locale.getDefault())
-    val timeStr: String get() = sdf.format(Date(time))
+    val timeStr: String get() = TIME_FORMAT.get()!!.format(Date(time))
     val tag: String get() = level.name
+
+    companion object {
+        private val TIME_FORMAT = object : ThreadLocal<SimpleDateFormat>() {
+            override fun initialValue() = SimpleDateFormat("HH:mm:ss", Locale.getDefault())
+        }
+    }
 }
 
 object AppLogger {
 
+    private const val MAX_ENTRIES = 500
+
     private val _logs = mutableListOf<LogEntry>()
-    val logs: List<LogEntry> get() = _logs.toList()
+    val logs: List<LogEntry> get() = synchronized(_logs) { _logs.toList() }
 
     private var onChange: (() -> Unit)? = null
 
@@ -29,12 +36,15 @@ object AppLogger {
     fun error(msg: String) = add(LogLevel.ERROR, msg)
 
     private fun add(level: LogLevel, msg: String) {
-        _logs.add(LogEntry(level = level, message = msg))
+        synchronized(_logs) {
+            _logs.add(LogEntry(level = level, message = msg))
+            if (_logs.size > MAX_ENTRIES) _logs.removeAt(0)
+        }
         onChange?.invoke()
     }
 
     fun clear() {
-        _logs.clear()
+        synchronized(_logs) { _logs.clear() }
         onChange?.invoke()
     }
 }

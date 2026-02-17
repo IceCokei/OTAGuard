@@ -3,6 +3,7 @@ package com.coke.otaguard.data
 import android.content.pm.PackageManager
 import android.provider.Settings
 import android.content.Context
+import java.util.concurrent.TimeUnit
 
 data class PackageStatus(
     val packageName: String,
@@ -31,6 +32,10 @@ data class OtaStatus(
 )
 
 class OtaChecker(private val context: Context) {
+
+    companion object {
+        private const val CMD_TIMEOUT = 10L // seconds
+    }
 
     private val monitoredPackages = listOf(
         Triple("com.oplus.ota", "系统 OTA 更新", "主更新服务，负责检测/下载/安装系统更新"),
@@ -81,15 +86,26 @@ class OtaChecker(private val context: Context) {
         )
     }
 
-    private fun checkRoot(): Boolean {
+    private fun execRoot(vararg args: String): String? {
+        var process: Process? = null
         return try {
-            val process = Runtime.getRuntime().exec(arrayOf("su", "-c", "id"))
-            val result = process.inputStream.bufferedReader().readText()
-            process.waitFor()
-            result.contains("uid=0")
-        } catch (e: Exception) {
-            false
+            process = Runtime.getRuntime().exec(arrayOf("su", "-c", *args))
+            val result = process.inputStream.bufferedReader().use { it.readText().trim() }
+            if (!process.waitFor(CMD_TIMEOUT, TimeUnit.SECONDS)) {
+                process.destroyForcibly()
+                return null
+            }
+            result.ifEmpty { null }
+        } catch (_: Exception) {
+            null
+        } finally {
+            process?.destroyForcibly()
         }
+    }
+
+    private fun checkRoot(): Boolean {
+        val result = execRoot("id") ?: return false
+        return result.contains("uid=0")
     }
 
     private fun checkPackages(): List<PackageStatus> {
@@ -107,34 +123,23 @@ class OtaChecker(private val context: Context) {
 
     private fun getPackageState(packageName: String): Pair<Boolean, String> {
         // 优先使用 root 精确查询
-        try {
-            val process = Runtime.getRuntime().exec(
-                arrayOf("su", "-c", "pm dump $packageName | grep -m1 'pkgFlags\\|enabled='")
-            )
-            val output = process.inputStream.bufferedReader().readText().trim()
-            process.waitFor()
-
-            if (output.contains("enabled=")) {
-                val enabledMatch = Regex("enabled=(\\d)").find(output)
-                val state = enabledMatch?.groupValues?.get(1)?.toIntOrNull() ?: -1
-                // 0=default(enabled), 1=enabled, 2=disabled, 3=disabled-user, 4=disabled-until-used
-                return when (state) {
-                    2, 3, 4 -> Pair(true, "disabled (state=$state)")
-                    else -> Pair(false, "enabled (state=$state)")
-                }
+        val dumpOutput = execRoot("pm dump $packageName | grep -m1 'pkgFlags\\|enabled='")
+        if (dumpOutput != null && dumpOutput.contains("enabled=")) {
+            val enabledMatch = Regex("enabled=(\\d)").find(dumpOutput)
+            val state = enabledMatch?.groupValues?.get(1)?.toIntOrNull() ?: -1
+            // 0=default(enabled), 1=enabled, 2=disabled, 3=disabled-user, 4=disabled-until-used
+            return when (state) {
+                2, 3, 4 -> Pair(true, "disabled (state=$state)")
+                else -> Pair(false, "enabled (state=$state)")
             }
-        } catch (_: Exception) {}
+        }
 
         // 回退：使用 pm list packages -d 查询
-        try {
-            val process = Runtime.getRuntime().exec(
-                arrayOf("su", "-c", "pm list packages -d")
-            )
-            val output = process.inputStream.bufferedReader().readText()
-            process.waitFor()
-            val disabled = output.contains("package:$packageName")
+        val listOutput = execRoot("pm list packages -d")
+        if (listOutput != null) {
+            val disabled = listOutput.contains("package:$packageName")
             return Pair(disabled, if (disabled) "disabled-user" else "enabled")
-        } catch (_: Exception) {}
+        }
 
         // 最后回退：PackageManager API
         return try {
@@ -162,14 +167,8 @@ class OtaChecker(private val context: Context) {
 
     private fun getGlobalSetting(key: String): String {
         // 优先 root 方式
-        try {
-            val process = Runtime.getRuntime().exec(
-                arrayOf("su", "-c", "settings get global $key")
-            )
-            val result = process.inputStream.bufferedReader().readText().trim()
-            process.waitFor()
-            if (result.isNotEmpty() && result != "null") return result
-        } catch (_: Exception) {}
+        val result = execRoot("settings get global $key")
+        if (result != null && result != "null") return result
 
         // 回退：ContentResolver
         return try {
@@ -184,31 +183,24 @@ class OtaChecker(private val context: Context) {
         val results = mutableListOf<String>()
 
         monitoredPackages.forEach { (pkg, label, _) ->
-            try {
-                val process = Runtime.getRuntime().exec(
-                    arrayOf("su", "-c", "pm disable $pkg")
-                )
-                val output = process.inputStream.bufferedReader().readText().trim()
-                process.waitFor()
+            val output = execRoot("pm disable $pkg")
+            if (output != null) {
                 results.add("$label: $output")
                 AppLogger.info("冻结 $label: $output")
-            } catch (e: Exception) {
-                results.add("$label: 失败 - ${e.message}")
-                AppLogger.error("冻结 $label 失败: ${e.message}")
+            } else {
+                results.add("$label: 失败")
+                AppLogger.error("冻结 $label 失败")
             }
         }
 
         monitoredSettings.forEach { (key, label, expected) ->
-            try {
-                val process = Runtime.getRuntime().exec(
-                    arrayOf("su", "-c", "settings put global $key $expected")
-                )
-                process.waitFor()
+            val output = execRoot("settings put global $key $expected")
+            if (output != null || execRoot("settings get global $key") == expected) {
                 results.add("$label: 已设为 $expected")
                 AppLogger.info("设置 $label = $expected")
-            } catch (e: Exception) {
-                results.add("$label: 失败 - ${e.message}")
-                AppLogger.error("设置 $label 失败: ${e.message}")
+            } else {
+                results.add("$label: 失败")
+                AppLogger.error("设置 $label 失败")
             }
         }
 
