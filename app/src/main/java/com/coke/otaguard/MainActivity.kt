@@ -6,6 +6,8 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.runtime.*
+import com.coke.otaguard.data.AppLogger
+import com.coke.otaguard.data.LogEntry
 import com.coke.otaguard.data.OtaChecker
 import com.coke.otaguard.data.OtaStatus
 import com.coke.otaguard.ui.screens.HomeScreen
@@ -24,13 +26,19 @@ class MainActivity : ComponentActivity() {
 
         checker = OtaChecker(applicationContext)
 
+        AppLogger.info("OTA Guard 启动")
+        AppLogger.info("设备: ${android.os.Build.DEVICE} / ${android.os.Build.MODEL}")
+        AppLogger.info("系统: Android ${android.os.Build.VERSION.RELEASE} (API ${android.os.Build.VERSION.SDK_INT})")
+
         setContent {
             OTAGuardTheme {
                 var otaStatus by remember { mutableStateOf<OtaStatus?>(null) }
                 var isLoading by remember { mutableStateOf(false) }
+                var logs by remember { mutableStateOf(AppLogger.logs) }
                 val scope = rememberCoroutineScope()
 
-                // 首次加载
+                AppLogger.setListener { logs = AppLogger.logs }
+
                 LaunchedEffect(Unit) {
                     isLoading = true
                     otaStatus = withContext(Dispatchers.IO) { checker.check() }
@@ -40,6 +48,7 @@ class MainActivity : ComponentActivity() {
                 HomeScreen(
                     otaStatus = otaStatus,
                     isLoading = isLoading,
+                    logs = logs,
                     onRefresh = {
                         scope.launch {
                             isLoading = true
@@ -50,16 +59,9 @@ class MainActivity : ComponentActivity() {
                     onEnforce = {
                         scope.launch {
                             isLoading = true
-                            val results = withContext(Dispatchers.IO) { checker.enforceAll() }
+                            withContext(Dispatchers.IO) { checker.enforceAll() }
                             otaStatus = withContext(Dispatchers.IO) { checker.check() }
                             isLoading = false
-                            withContext(Dispatchers.Main) {
-                                Toast.makeText(
-                                    this@MainActivity,
-                                    "执行完成：\n${results.joinToString("\n")}",
-                                    Toast.LENGTH_LONG
-                                ).show()
-                            }
                         }
                     }
                 )

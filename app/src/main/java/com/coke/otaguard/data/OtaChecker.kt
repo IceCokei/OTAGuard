@@ -47,11 +47,29 @@ class OtaChecker(private val context: Context) {
     )
 
     fun check(): OtaStatus {
+        AppLogger.info("开始检测系统状态...")
+
         val hasRoot = checkRoot()
+        AppLogger.info("Root 权限: ${if (hasRoot) "可用" else "不可用"}")
+
         val moduleActive = com.coke.otaguard.hook.ModuleStatus.isActive()
+        AppLogger.info("LSPosed 模块: ${if (moduleActive) "已激活" else "未激活"}")
+
         val packages = checkPackages()
+        packages.forEach { pkg ->
+            if (pkg.isDisabled) AppLogger.info("${pkg.label} (${pkg.packageName}): 已冻结")
+            else AppLogger.warn("${pkg.label} (${pkg.packageName}): 运行中 ⚠")
+        }
+
         val settings = checkSettings()
+        settings.forEach { s ->
+            if (s.isCorrect) AppLogger.info("${s.label}: 当前=${s.currentValue} ✓")
+            else AppLogger.warn("${s.label}: 当前=${s.currentValue}, 期望=${s.expectedValue} ✗")
+        }
+
         val overallSafe = packages.all { it.isDisabled } && settings.all { it.isCorrect }
+        if (overallSafe) AppLogger.info("检测完成: 所有防护正常")
+        else AppLogger.warn("检测完成: 存在未封锁的更新通道")
 
         return OtaStatus(
             packages = packages,
@@ -162,9 +180,9 @@ class OtaChecker(private val context: Context) {
     }
 
     fun enforceAll(): List<String> {
+        AppLogger.info("执行强制封锁...")
         val results = mutableListOf<String>()
 
-        // 冻结所有 OTA 包
         monitoredPackages.forEach { (pkg, label, _) ->
             try {
                 val process = Runtime.getRuntime().exec(
@@ -173,12 +191,13 @@ class OtaChecker(private val context: Context) {
                 val output = process.inputStream.bufferedReader().readText().trim()
                 process.waitFor()
                 results.add("$label: $output")
+                AppLogger.info("冻结 $label: $output")
             } catch (e: Exception) {
                 results.add("$label: 失败 - ${e.message}")
+                AppLogger.error("冻结 $label 失败: ${e.message}")
             }
         }
 
-        // 强制写入设置
         monitoredSettings.forEach { (key, label, expected) ->
             try {
                 val process = Runtime.getRuntime().exec(
@@ -186,11 +205,14 @@ class OtaChecker(private val context: Context) {
                 )
                 process.waitFor()
                 results.add("$label: 已设为 $expected")
+                AppLogger.info("设置 $label = $expected")
             } catch (e: Exception) {
                 results.add("$label: 失败 - ${e.message}")
+                AppLogger.error("设置 $label 失败: ${e.message}")
             }
         }
 
+        AppLogger.info("强制封锁执行完成")
         return results
     }
 }
