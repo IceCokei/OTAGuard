@@ -9,15 +9,15 @@ ColorOS can silently re-enable OTA services, reset update settings, or push hidd
 ## ⚙️ How It Works
 
 ### 📱 App Layer
-- 🔍 Uses root privileges to check the enabled/disabled state of 5 OTA-related system packages
-- 📊 Reads 3 critical `Settings.Global` values that control automatic update behavior
-- 🔒 Provides a one-tap "Enforce" button to re-freeze everything if tampering is detected
+- Uses root privileges to check the enabled/disabled state of 5 OTA-related system packages
+- Reads 3 critical `Settings.Global` values that control automatic update behavior
+- Provides a one-tap "Enforce" button to re-freeze everything if tampering is detected
 
 ### 🪝 LSPosed Hook Layer
-- **🔐 Settings Protection**: Hooks `Settings.Global.putString` and `putInt` to block any attempt to change OTA-related settings back to their defaults
-- **📦 Package Protection**: Hooks `PackageManagerService.setApplicationEnabledSetting` to prevent OTA packages from being re-enabled
-- **💀 Process Kill**: Hooks `Application.onCreate` inside OTA packages to immediately terminate them if they somehow launch
-- **🌐 Network Block**: Hooks `URL.openConnection` inside OTA packages to block update check requests
+- **Settings Protection** — Hooks `Settings.Global.putString` and `putInt` to block any attempt to change OTA-related settings back to their defaults
+- **Package Protection** — Hooks `PackageManagerService.setApplicationEnabledSetting` to prevent OTA packages from being re-enabled
+- **Process Kill** — Hooks `Application.onCreate` inside OTA packages to immediately terminate them if they somehow launch
+- **Network Block** — Hooks `URL.openConnection` inside OTA packages to block update check requests
 
 ## 🎯 Monitored Targets
 
@@ -34,17 +34,23 @@ ColorOS can silently re-enable OTA services, reset update settings, or push hidd
 
 ## 📋 Requirements
 
-- 🤖 Android 11+ (API 30)
-- 🔑 Root access (Magisk / KernelSU)
-- 🧩 LSPosed framework
+- Android 11+ (API 30)
+- Root access (Magisk / KernelSU)
+- LSPosed framework
+
+## 🧪 Tested Environment
+
+- **Device**: OnePlus 15
+- **System**: ColorOS 16 (Android 16)
+- Other OEM / system versions are untested — use at your own risk
 
 ## 📥 Install
 
-1. ⬇️ Download the latest release APK from [Releases](https://github.com/IceCokei/OTAGuard/releases)
-2. 📲 Install the APK
-3. 🧩 Open LSPosed Manager → Modules → Enable **OTA Guard**
-4. ☑️ Select scope: `System Framework (android)` + all OTA packages + `OTA Guard` itself
-5. 🔄 Reboot
+1. Download the latest release APK from [Releases](https://github.com/IceCokei/OTAGuard/releases)
+2. Install the APK
+3. Open LSPosed Manager → Modules → Enable **OTA Guard**
+4. Select scope: `System Framework (android)` + all OTA packages + `OTA Guard` itself
+5. Reboot
 
 ## 🔨 Build
 
@@ -55,4 +61,4 @@ export JAVA_HOME=/path/to/jdk17
 
 ## 📄 License
 
-MIT
+[GPL-3.0](LICENSE)
