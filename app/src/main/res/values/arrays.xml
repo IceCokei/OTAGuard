@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string-array name="xposed_scope">
+        <item>com.coke.otaguard</item>
+        <item>android</item>
+        <item>com.oplus.ota</item>
+        <item>com.oplus.cota</item>
+        <item>com.oplus.romupdate</item>
+        <item>com.oplus.upgradeguide</item>
+    </string-array>
+</resources>
