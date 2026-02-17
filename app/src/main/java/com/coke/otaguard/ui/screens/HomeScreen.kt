@@ -151,27 +151,28 @@ private fun LogRow(entry: LogEntry) {
         modifier = Modifier
             .fillMaxWidth()
             .padding(vertical = 3.dp),
-        verticalAlignment = Alignment.Top
+        verticalAlignment = Alignment.CenterVertically
     ) {
-        Text(
-            text = entry.timeStr,
-            color = TextDim,
-            fontSize = 9.sp,
-            fontFamily = FontFamily.Monospace,
-            maxLines = 1,
-            overflow = TextOverflow.Clip,
-            modifier = Modifier.width(50.dp)
-        )
+        // TAG 固定 5 字符宽（最长 ERROR）
         Text(
             text = entry.tag,
             color = color,
-            fontSize = 9.sp,
+            fontSize = 10.sp,
             fontWeight = FontWeight.Bold,
             fontFamily = FontFamily.Monospace,
             maxLines = 1,
-            overflow = TextOverflow.Clip,
-            modifier = Modifier.width(34.dp)
+            modifier = Modifier.widthIn(min = 38.dp)
         )
+        // 时间 固定 8 字符宽（HH:mm:ss）
+        Text(
+            text = entry.timeStr,
+            color = TextDim,
+            fontSize = 10.sp,
+            fontFamily = FontFamily.Monospace,
+            maxLines = 1,
+            modifier = Modifier.widthIn(min = 52.dp)
+        )
+        // 消息 占满剩余
         Text(
             text = entry.message,
             color = TextMuted,
