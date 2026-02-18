@@ -3,6 +3,8 @@ package com.coke.otaguard.data
 import android.content.pm.PackageManager
 import android.provider.Settings
 import android.content.Context
+import org.json.JSONArray
+import org.json.JSONObject
 import java.util.concurrent.TimeUnit
 
 data class PackageStatus(
@@ -35,6 +37,11 @@ class OtaChecker(private val context: Context) {
 
     companion object {
         private const val CMD_TIMEOUT = 10L // seconds
+        private const val CACHE_KEY = "cached_status"
+    }
+
+    private val cachePrefs by lazy {
+        context.getSharedPreferences("otaguard_cache", Context.MODE_PRIVATE)
     }
 
     private val monitoredPackages = listOf(
@@ -206,5 +213,80 @@ class OtaChecker(private val context: Context) {
 
         AppLogger.info("强制封锁执行完成")
         return results
+    }
+
+    fun saveCache(status: OtaStatus) {
+        val json = JSONObject().apply {
+            put("hasRoot", status.hasRoot)
+            put("moduleActive", status.moduleActive)
+            put("overallSafe", status.overallSafe)
+            put("lastCheckTime", status.lastCheckTime)
+            put("packages", JSONArray().apply {
+                status.packages.forEach { pkg ->
+                    put(JSONObject().apply {
+                        put("packageName", pkg.packageName)
+                        put("label", pkg.label)
+                        put("description", pkg.description)
+                        put("isDisabled", pkg.isDisabled)
+                        put("rawState", pkg.rawState)
+                    })
+                }
+            })
+            put("settings", JSONArray().apply {
+                status.settings.forEach { s ->
+                    put(JSONObject().apply {
+                        put("key", s.key)
+                        put("label", s.label)
+                        put("description", s.description)
+                        put("currentValue", s.currentValue)
+                        put("expectedValue", s.expectedValue)
+                        put("isCorrect", s.isCorrect)
+                    })
+                }
+            })
+        }
+        cachePrefs.edit().putString(CACHE_KEY, json.toString()).apply()
+    }
+
+    fun loadCache(): OtaStatus? {
+        val jsonStr = cachePrefs.getString(CACHE_KEY, null) ?: return null
+        return try {
+            val json = JSONObject(jsonStr)
+            val packages = mutableListOf<PackageStatus>()
+            val pkgArray = json.getJSONArray("packages")
+            for (i in 0 until pkgArray.length()) {
+                val obj = pkgArray.getJSONObject(i)
+                packages.add(PackageStatus(
+                    packageName = obj.getString("packageName"),
+                    label = obj.getString("label"),
+                    description = obj.getString("description"),
+                    isDisabled = obj.getBoolean("isDisabled"),
+                    rawState = obj.getString("rawState")
+                ))
+            }
+            val settings = mutableListOf<SettingStatus>()
+            val settingsArray = json.getJSONArray("settings")
+            for (i in 0 until settingsArray.length()) {
+                val obj = settingsArray.getJSONObject(i)
+                settings.add(SettingStatus(
+                    key = obj.getString("key"),
+                    label = obj.getString("label"),
+                    description = obj.getString("description"),
+                    currentValue = obj.getString("currentValue"),
+                    expectedValue = obj.getString("expectedValue"),
+                    isCorrect = obj.getBoolean("isCorrect")
+                ))
+            }
+            OtaStatus(
+                packages = packages,
+                settings = settings,
+                hasRoot = json.getBoolean("hasRoot"),
+                moduleActive = json.getBoolean("moduleActive"),
+                overallSafe = json.getBoolean("overallSafe"),
+                lastCheckTime = json.getLong("lastCheckTime")
+            )
+        } catch (_: Exception) {
+            null
+        }
     }
 }

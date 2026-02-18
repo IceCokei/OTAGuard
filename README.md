@@ -11,6 +11,7 @@ ColorOS can silently re-enable OTA services, reset update settings, or push hidd
 ### App Layer
 - Uses root privileges to check the enabled/disabled state of 5 OTA-related system packages
 - Reads 3 critical `Settings.Global` values that control automatic update behavior
+- Smart caching — scan results persist across app restarts; only re-scans when issues are detected or LSPosed status changes
 - Real-time logging dashboard with INFO / WARN / ERROR levels
 - One-tap "Enforce" button to re-freeze everything if tampering is detected
 

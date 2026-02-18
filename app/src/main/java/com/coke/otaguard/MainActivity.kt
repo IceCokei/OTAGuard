@@ -8,6 +8,7 @@ import androidx.compose.runtime.*
 import com.coke.otaguard.data.AppLogger
 import com.coke.otaguard.data.OtaChecker
 import com.coke.otaguard.data.OtaStatus
+import com.coke.otaguard.hook.ModuleStatus
 import com.coke.otaguard.ui.screens.HomeScreen
 import com.coke.otaguard.ui.theme.OTAGuardTheme
 import kotlinx.coroutines.Dispatchers
@@ -42,9 +43,31 @@ class MainActivity : ComponentActivity() {
             AppLogger.setListener { logs = AppLogger.logs }
 
             LaunchedEffect(Unit) {
-                isLoading = true
-                otaStatus = withContext(Dispatchers.IO) { checker.check() }
-                isLoading = false
+                val cached = withContext(Dispatchers.IO) { checker.loadCache() }
+                if (cached != null && cached.overallSafe && cached.hasRoot) {
+                    // 缓存存在且上次检测全部正常
+                    val moduleStillActive = ModuleStatus.isActive()
+                    if (moduleStillActive == cached.moduleActive) {
+                        // LSPosed 状态未变化，直接使用缓存
+                        otaStatus = cached
+                        AppLogger.info("系统状态正常，加载上次检测结果")
+                    } else {
+                        // LSPosed 状态变更，需要重新检测
+                        AppLogger.warn("LSPosed 模块状态变更，重新检测...")
+                        isLoading = true
+                        val result = withContext(Dispatchers.IO) { checker.check() }
+                        withContext(Dispatchers.IO) { checker.saveCache(result) }
+                        otaStatus = result
+                        isLoading = false
+                    }
+                } else {
+                    // 无缓存或上次检测存在问题，执行完整扫描
+                    isLoading = true
+                    val result = withContext(Dispatchers.IO) { checker.check() }
+                    withContext(Dispatchers.IO) { checker.saveCache(result) }
+                    otaStatus = result
+                    isLoading = false
+                }
             }
 
             OTAGuardTheme(isDark = isDark) {
@@ -56,7 +79,9 @@ class MainActivity : ComponentActivity() {
                     onRefresh = {
                         scope.launch {
                             isLoading = true
-                            otaStatus = withContext(Dispatchers.IO) { checker.check() }
+                            val result = withContext(Dispatchers.IO) { checker.check() }
+                            withContext(Dispatchers.IO) { checker.saveCache(result) }
+                            otaStatus = result
                             isLoading = false
                         }
                     },
@@ -64,7 +89,9 @@ class MainActivity : ComponentActivity() {
                         scope.launch {
                             isLoading = true
                             withContext(Dispatchers.IO) { checker.enforceAll() }
-                            otaStatus = withContext(Dispatchers.IO) { checker.check() }
+                            val result = withContext(Dispatchers.IO) { checker.check() }
+                            withContext(Dispatchers.IO) { checker.saveCache(result) }
+                            otaStatus = result
                             isLoading = false
                         }
                     },
