@@ -1,5 +1,6 @@
 package com.coke.otaguard.data
 
+import android.util.Log
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -22,6 +23,7 @@ data class LogEntry(
 
 object AppLogger {
 
+    private const val TAG = "OTAGuard"
     private const val MAX_ENTRIES = 500
 
     private val _logs = mutableListOf<LogEntry>()
@@ -36,6 +38,11 @@ object AppLogger {
     fun error(msg: String) = add(LogLevel.ERROR, msg)
 
     private fun add(level: LogLevel, msg: String) {
+        when (level) {
+            LogLevel.INFO -> Log.i(TAG, msg)
+            LogLevel.WARN -> Log.w(TAG, msg)
+            LogLevel.ERROR -> Log.e(TAG, msg)
+        }
         synchronized(_logs) {
             _logs.add(LogEntry(level = level, message = msg))
             if (_logs.size > MAX_ENTRIES) _logs.removeAt(0)

@@ -15,6 +15,11 @@ data class OtaColors(
     val greenBg: Color,
     val red: Color,
     val redBg: Color,
+
+    val amber: Color,
+    val amberBg: Color,
+    val blue: Color,
+    val blueBg: Color,
 )
 
 val DarkPalette = OtaColors(
@@ -29,6 +34,10 @@ val DarkPalette = OtaColors(
     greenBg = Color(0xFF052E16),
     red = Color(0xFFEF4444),
     redBg = Color(0xFF450A0A),
+    amber = Color(0xFFFBBF24),
+    amberBg = Color(0xFF422006),
+    blue = Color(0xFF3B82F6),
+    blueBg = Color(0xFF172554),
 )
 
 val LightPalette = OtaColors(
@@ -43,6 +52,10 @@ val LightPalette = OtaColors(
     greenBg = Color(0xFFDCFCE7),
     red = Color(0xFFDC2626),
     redBg = Color(0xFFFEE2E2),
+    amber = Color(0xFFD97706),
+    amberBg = Color(0xFFFEF3C7),
+    blue = Color(0xFF2563EB),
+    blueBg = Color(0xFFDBEAFE),
 )
 
 val LocalOtaColors = staticCompositionLocalOf { DarkPalette }

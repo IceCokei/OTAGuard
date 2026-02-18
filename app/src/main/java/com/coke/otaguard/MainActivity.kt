@@ -6,6 +6,8 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.runtime.*
 import com.coke.otaguard.data.AppLogger
+import com.coke.otaguard.data.CloudControlChecker
+import com.coke.otaguard.data.CloudControlStatus
 import com.coke.otaguard.data.OtaChecker
 import com.coke.otaguard.data.OtaStatus
 import com.coke.otaguard.hook.ModuleStatus
@@ -18,6 +20,7 @@ import kotlinx.coroutines.withContext
 class MainActivity : ComponentActivity() {
 
     private lateinit var checker: OtaChecker
+    private lateinit var cloudChecker: CloudControlChecker
 
     private val prefs by lazy {
         getSharedPreferences("otaguard_settings", MODE_PRIVATE)
@@ -28,6 +31,7 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
 
         checker = OtaChecker(applicationContext)
+        cloudChecker = CloudControlChecker(applicationContext)
 
         AppLogger.info("OTA Guard 启动")
         AppLogger.info("设备: ${android.os.Build.DEVICE} / ${android.os.Build.MODEL}")
@@ -37,12 +41,17 @@ class MainActivity : ComponentActivity() {
             var isDark by remember { mutableStateOf(prefs.getBoolean("is_dark", true)) }
             var otaStatus by remember { mutableStateOf<OtaStatus?>(null) }
             var isLoading by remember { mutableStateOf(false) }
+            var cloudStatus by remember { mutableStateOf<CloudControlStatus?>(null) }
+            var isCloudLoading by remember { mutableStateOf(false) }
             var logs by remember { mutableStateOf(AppLogger.logs) }
             val scope = rememberCoroutineScope()
 
             AppLogger.setListener { logs = AppLogger.logs }
 
             LaunchedEffect(Unit) {
+                val cloudCached = withContext(Dispatchers.IO) { cloudChecker.loadCache() }
+                if (cloudCached != null) cloudStatus = cloudCached
+
                 val cached = withContext(Dispatchers.IO) { checker.loadCache() }
                 if (cached != null && cached.overallSafe && cached.hasRoot) {
                     // 缓存存在且上次检测全部正常
@@ -98,6 +107,50 @@ class MainActivity : ComponentActivity() {
                     onToggleTheme = {
                         isDark = !isDark
                         prefs.edit().putBoolean("is_dark", isDark).apply()
+                    },
+                    cloudStatus = cloudStatus,
+                    isCloudLoading = isCloudLoading,
+                    onCloudScan = {
+                        scope.launch {
+                            isCloudLoading = true
+                            val result = withContext(Dispatchers.IO) { cloudChecker.check() }
+                            withContext(Dispatchers.IO) { cloudChecker.saveCache(result) }
+                            cloudStatus = result
+                            isCloudLoading = false
+                        }
+                    },
+                    onCloudDisableAll = {
+                        scope.launch {
+                            isCloudLoading = true
+                            withContext(Dispatchers.IO) { cloudChecker.disableAllSafe() }
+                            val result = withContext(Dispatchers.IO) { cloudChecker.check() }
+                            withContext(Dispatchers.IO) { cloudChecker.saveCache(result) }
+                            cloudStatus = result
+                            isCloudLoading = false
+                        }
+                    },
+                    onCloudUninstallAll = {
+                        scope.launch {
+                            isCloudLoading = true
+                            withContext(Dispatchers.IO) { cloudChecker.uninstallAllSafe() }
+                            val result = withContext(Dispatchers.IO) { cloudChecker.check() }
+                            withContext(Dispatchers.IO) { cloudChecker.saveCache(result) }
+                            cloudStatus = result
+                            isCloudLoading = false
+                        }
+                    },
+                    onCloudToggle = { pkg, disable ->
+                        scope.launch {
+                            isCloudLoading = true
+                            withContext(Dispatchers.IO) {
+                                if (disable) cloudChecker.disablePackage(pkg)
+                                else cloudChecker.enablePackage(pkg)
+                            }
+                            val result = withContext(Dispatchers.IO) { cloudChecker.check() }
+                            withContext(Dispatchers.IO) { cloudChecker.saveCache(result) }
+                            cloudStatus = result
+                            isCloudLoading = false
+                        }
                     }
                 )
             }

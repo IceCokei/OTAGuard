@@ -30,6 +30,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.coke.otaguard.BuildConfig
+import com.coke.otaguard.data.CloudControlStatus
 import com.coke.otaguard.data.LogEntry
 import com.coke.otaguard.data.LogLevel
 import com.coke.otaguard.data.OtaStatus
@@ -47,7 +48,13 @@ fun HomeScreen(
     isDark: Boolean,
     onRefresh: () -> Unit,
     onEnforce: () -> Unit,
-    onToggleTheme: () -> Unit
+    onToggleTheme: () -> Unit,
+    cloudStatus: CloudControlStatus?,
+    isCloudLoading: Boolean,
+    onCloudScan: () -> Unit,
+    onCloudDisableAll: () -> Unit,
+    onCloudUninstallAll: () -> Unit,
+    onCloudToggle: (String, Boolean) -> Unit
 ) {
     val colors = LocalOtaColors.current
     var currentTab by remember { mutableIntStateOf(0) }
@@ -59,8 +66,9 @@ fun HomeScreen(
     ) {
         when (currentTab) {
             0 -> GuardPage(otaStatus, isLoading, onRefresh, onEnforce)
-            1 -> LogPage(logs)
-            2 -> AboutPage(isDark, onToggleTheme)
+            1 -> CloudControlPage(cloudStatus, isCloudLoading, onCloudScan, onCloudDisableAll, onCloudUninstallAll, onCloudToggle)
+            2 -> LogPage(logs)
+            3 -> AboutPage(isDark, onToggleTheme)
         }
 
         TabBar(
@@ -152,7 +160,7 @@ private fun LogRow(entry: LogEntry) {
     val colors = LocalOtaColors.current
     val color = when (entry.level) {
         LogLevel.INFO -> colors.green
-        LogLevel.WARN -> Color(0xFFFBBF24)
+        LogLevel.WARN -> colors.amber
         LogLevel.ERROR -> colors.red
     }
 
@@ -806,17 +814,24 @@ private fun TabBar(currentTab: Int, onTabSelect: (Int) -> Unit, modifier: Modifi
                 modifier = Modifier.weight(1f)
             )
             TabItem(
-                icon = Icons.Outlined.Description,
-                label = "日志",
+                icon = Icons.Outlined.CloudOff,
+                label = "云控",
                 active = currentTab == 1,
                 onClick = { onTabSelect(1) },
                 modifier = Modifier.weight(1f)
             )
             TabItem(
-                icon = Icons.Outlined.Info,
-                label = "关于",
+                icon = Icons.Outlined.Description,
+                label = "日志",
                 active = currentTab == 2,
                 onClick = { onTabSelect(2) },
+                modifier = Modifier.weight(1f)
+            )
+            TabItem(
+                icon = Icons.Outlined.Info,
+                label = "关于",
+                active = currentTab == 3,
+                onClick = { onTabSelect(3) },
                 modifier = Modifier.weight(1f)
             )
         }
